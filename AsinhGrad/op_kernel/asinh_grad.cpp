@@ -6,18 +6,19 @@ class KernelAsinhGrad {
     using T = TYPE_Y;
 public:
     __aicore__ inline KernelAsinhGrad() {}
-    __aicore__ inline void Init(GM_ADDR y, GM_ADDR dy, GM_ADDR z, uint32_t totalLength, uint32_t ALIGN_NUM, uint32_t block_size, uint32_t core_size, uint32_t core_remain) {
-        ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
-        this->blockLength = core_size + (GetBlockNum() == GetBlockIdx() + 1 ? core_remain : 0);
+    __aicore__ inline void Init(GM_ADDR y, GM_ADDR dy, GM_ADDR z, uint32_t prenum, uint32_t sufnum, uint32_t presize, uint32_t sufsize, uint32_t block_size) {
+
+        idx = GetBlockIdx();
+
+        this->blockLength = idx < prenum ? presize : sufsize;
         this->tileLength = block_size;
-        //this->blockLength = this->blockLength + (this->blockLength % ALIGN_NUM ? ALIGN_NUM - this->blockLength % ALIGN_NUM : 0);
 
-        auto startPointer = core_size * GetBlockIdx();
-
+        auto startPointer = idx < prenum ? idx * presize : prenum * presize + (idx - prenum) * sufsize;
         yGm.SetGlobalBuffer((__gm__ TYPE_Y*)y + startPointer, this->blockLength);
         dyGm.SetGlobalBuffer((__gm__ TYPE_DY*)dy + startPointer, this->blockLength);
         zGm.SetGlobalBuffer((__gm__ TYPE_Z*)z + startPointer, this->blockLength);
-        this->tileNum = this->tileNum = this->blockLength / this->tileLength + (this->blockLength % this->tileLength > 0);
+        this->tileNum = (this->blockLength +this->tileLength - 1)/ this->tileLength;
+        
         pipe.InitBuffer(inQueueY, BUFFER_NUM, this->tileLength * sizeof(TYPE_Y));
         pipe.InitBuffer(inQueueDY, BUFFER_NUM, this->tileLength * sizeof(TYPE_DY));
         pipe.InitBuffer(outQueueZ, BUFFER_NUM, this->tileLength * sizeof(TYPE_Z));
@@ -30,15 +31,21 @@ public:
     __aicore__ inline void Process() {
 
         int32_t loopCount = this->tileNum;
-        for (int32_t i = 0; i < loopCount-1; i++) {
-            CopyIn(i, this->tileLength);
-            Compute(i, this->tileLength);
-            CopyOut(i, this->tileLength);
+        for (int32_t i = 0; i < loopCount; i++) {
+
+            if(i == loopCount-1)
+            {
+                CopyIn(i, this->blockLength - (loopCount - 1) * this->tileLength);
+                Compute(i, this->blockLength - (loopCount - 1) * this->tileLength);
+                CopyOut(i, this->blockLength - (loopCount - 1) * this->tileLength);
+            }
+            else
+            {
+                CopyIn(i, this->tileLength);
+                Compute(i, this->tileLength);
+                CopyOut(i, this->tileLength);
+            }
         }
-        uint32_t length = this->blockLength - this->tileLength * (loopCount - 1);
-        CopyIn(loopCount - 1, length);
-        Compute(loopCount - 1, length);
-        CopyOut(loopCount - 1, length);
     }
 
 private:
@@ -65,29 +72,29 @@ private:
             Cast(k2, dyLocal, RoundMode::CAST_NONE, length);
             auto k3 = B_z.Get<float>();
     
-            float inputVal1 = -1;
-            float inputVal2 = 0.5;
-            Muls(k3, k1, inputVal1, length);
-            Exp(k3, k3, length);
-            Exp(k1, k1, length);
-            Add(k1, k1, k3, length);
-            Muls(k1, k1, inputVal2, length);
+            float inputVal1 = 1.0;
+            float inputVal2 = 2.0;
 
-            Div(k3, k2, k1, length);
+            Exp(k1, k1, length);
+            Mul(k3, k1, k1, length);
+            Adds(k3, k3, inputVal1, length);
+            Muls(k1, k1, inputVal2, length);
+            Mul(k1, k1, k2, length);
+            Div(k3, k1, k3, length);
 
             Cast(zLocal, k3, RoundMode::CAST_NONE, length);
         }
         else if constexpr (std::is_same_v<T, float>)
         {
-            TYPE_Y inputVal1 = -1;
-            TYPE_Y inputVal2 = 0.5;
-            Muls(zLocal, yLocal, inputVal1, length);
-            Exp(zLocal, zLocal, length);
+            TYPE_Y inputVal1 = 1.0;
+            TYPE_Y inputVal2 = 2.0;
+            
             Exp(yLocal, yLocal, length);
-            Add(yLocal, yLocal, zLocal, length);
+            Mul(zLocal, yLocal, yLocal, length);
+            Adds(zLocal, zLocal, inputVal1, length);
             Muls(yLocal, yLocal, inputVal2, length);
-
-            Div(zLocal, dyLocal, yLocal, length);
+            Mul(yLocal, yLocal, dyLocal, length);
+            Div(zLocal, yLocal, zLocal, length);
         }
         
         outQueueZ.EnQue<TYPE_Z>(zLocal);
@@ -113,11 +120,12 @@ private:
     uint32_t blockLength;
     uint32_t tileNum;
     uint32_t tileLength;
+    uint32_t idx;
 };
 extern "C" __global__ __aicore__ void asinh_grad(GM_ADDR y, GM_ADDR dy, GM_ADDR z, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     // TODO: user kernel impl
     KernelAsinhGrad<DTYPE_Y, DTYPE_DY, DTYPE_Z> op;
-    op.Init(y, dy, z, tiling_data.totalLength, tiling_data.ALIGN_NUM, tiling_data.block_size, tiling_data.core_size, tiling_data.core_remain); 
+    op.Init(y, dy, z, tiling_data.prenum, tiling_data.sufnum, tiling_data.presize, tiling_data.sufsize, tiling_data.block_size); 
     op.Process();
 }

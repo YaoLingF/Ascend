@@ -22,7 +22,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t inputLength = inputBytes * inputNum; //输入长度
 
     //可使用的ub空间 输入3输出1，手动考虑双缓存
-    uint32_t ubDataNumber = 12;
+    uint32_t ubDataNumber = 20;
     // The number of 32B data blocks that can be used for each data. DOUBLE BUFFER is already counted here
     uint32_t tileBlockNum = (ubSize / BLOCK_SIZE) / ubDataNumber; //每个ub段可用的空间块数
     uint32_t tileDataNum = (tileBlockNum * BLOCK_SIZE) / inputBytes; //每次处理的数据量

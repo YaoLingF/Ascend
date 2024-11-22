@@ -3,14 +3,11 @@
 
 namespace optiling {
 BEGIN_TILING_DATA_DEF(AsinhTilingData)
-  TILING_DATA_FIELD_DEF(uint32_t, totalLength);
-  TILING_DATA_FIELD_DEF(uint32_t, tileNum);
-  TILING_DATA_FIELD_DEF(uint32_t, ALIGN_NUM);
-  TILING_DATA_FIELD_DEF(uint32_t, tiling_size);
+  TILING_DATA_FIELD_DEF(uint32_t, prenum);
+  TILING_DATA_FIELD_DEF(uint32_t, sufnum);
+  TILING_DATA_FIELD_DEF(uint32_t, presize);
+  TILING_DATA_FIELD_DEF(uint32_t, sufsize);
   TILING_DATA_FIELD_DEF(uint32_t, block_size);
-  TILING_DATA_FIELD_DEF(uint32_t, aivNum);
-  TILING_DATA_FIELD_DEF(uint32_t, core_size);
-  TILING_DATA_FIELD_DEF(uint32_t, core_remain);
 
 END_TILING_DATA_DEF;
 

@@ -10,8 +10,9 @@ namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
-  NotEqualTilingData tiling;
-      int32_t NUM = 24;
+    NotEqualTilingData tiling;
+
+    int32_t NUM = 24;
     uint32_t sizeofdatatype;
     uint32_t totalLengthAligned;
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -25,9 +26,9 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     if(dt == ge::DT_INT8){
         sizeofdatatype = 1;
         NUM = 15;
-    }else if(dt == ge::DT_FLOAT16 || dt == ge::DT_BF16){
+    }else if(dt == ge::DT_FLOAT16){
         sizeofdatatype = 2;
-        NUM = 15;
+        NUM = 20;
     }
     else if (dt == ge::DT_INT32) {
         sizeofdatatype = 4;
@@ -42,12 +43,14 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t tiling_size = ((ub_size) / BLOCK_SIZE / 2) / NUM;
     tiling_size = tiling_size <= 8 ? tiling_size : tiling_size / 8 * 8;
 
-    uint32_t block_size = tiling_size * ALIGN_NUM;
+    uint32_t block_size = tiling_size * ALIGN_NUM;//每个tile大小（单位：元素个数） 对齐32B
     aivNum = (aivNum < totalLength / block_size) ? aivNum : (totalLength / block_size);
     aivNum = aivNum >= 1 ? aivNum : 1;
 
-    uint32_t core_size = (totalLength / aivNum) / (ALIGN_NUM * 8) * (ALIGN_NUM * 8);
+    uint32_t num = totalLength / block_size;//Tile个数
+    uint32_t core_size = num / aivNum * block_size;//每个核处理元素个数
     uint32_t core_remain = totalLength - aivNum * core_size;
+    core_remain = (core_remain + ALIGN_NUM -1) / ALIGN_NUM * ALIGN_NUM;
 
     tiling.set_totalLength(totalLength);
     tiling.set_ALIGN_NUM(ALIGN_NUM);

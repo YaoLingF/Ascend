@@ -6,56 +6,52 @@
 
 namespace optiling {
     const uint32_t BLOCK_SIZE = 32;
+    const uint32_t N = 1;
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
-  AsinhGradTilingData tiling;
-  int32_t NUM = 24;
+    AsinhGradTilingData tiling;
+    int32_t NUM = 10;
     uint32_t sizeofdatatype;
-    uint32_t totalLengthAligned;
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     auto socVersion = ascendcPlatform.GetSocVersion();
     uint64_t ub_size;
     ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ub_size);
     auto aivNum = ascendcPlatform.GetCoreNum();
-
     uint32_t totalLength = context->GetInputTensor(0)->GetShapeSize();
     auto dt = context->GetInputTensor(0)->GetDataType();
     if(dt == ge::DT_FLOAT16){
         sizeofdatatype = 2;
-        NUM = 15;
+        NUM = 12;
     }
- 
     else{
         sizeofdatatype = 4;
         NUM = 6;
     }
+    uint32_t ALIGN_NUM = BLOCK_SIZE / sizeofdatatype;//每个32B块可容纳元素个数
+    totalLength = (totalLength * sizeofdatatype + 31) / 32;//32B个数
 
-    uint32_t ALIGN_NUM = BLOCK_SIZE / sizeofdatatype;
-    uint32_t tiling_size = ((ub_size) / BLOCK_SIZE / 2) / NUM;
-    tiling_size = tiling_size <= 8 ? tiling_size : tiling_size / 8 * 8;
+    uint32_t pre32B = (totalLength / N) + (totalLength % N == 0 ? 0 : 1);
+    uint32_t suf32B = totalLength / N;
 
-    uint32_t block_size = tiling_size * ALIGN_NUM;//每个tile大小（单位：元素个数） 对齐32B
-    aivNum = (aivNum < totalLength / block_size) ? aivNum : (totalLength / block_size);
-    aivNum = aivNum >= 1 ? aivNum : 1;
+    uint32_t prenum = totalLength % N;
+    uint32_t sufnum = N - prenum;
 
-    uint32_t num = totalLength / block_size;//Tile个数
-    uint32_t core_size = num / aivNum * block_size;//每个核处理元素个数
-    uint32_t core_remain = totalLength - aivNum * core_size;
-    core_remain = (core_remain + ALIGN_NUM -1) / ALIGN_NUM * ALIGN_NUM;
+    uint32_t presize = pre32B * ALIGN_NUM;
+    uint32_t sufsize = suf32B * ALIGN_NUM;
 
-    // uint32_t core_size = (totalLength / aivNum) / (ALIGN_NUM * 8) * (ALIGN_NUM * 8);//每个核处理元素的个数
-    // uint32_t core_remain = totalLength - aivNum * core_size;
+    uint32_t tiling_size = ub_size / BLOCK_SIZE / NUM;//每个tile多少个32B
+    uint32_t block_size = tiling_size * ALIGN_NUM;//每个tile大小(单位：元素个数)
 
-    tiling.set_totalLength(totalLength);
-    tiling.set_ALIGN_NUM(ALIGN_NUM);
-    tiling.set_tiling_size(tiling_size);
+
+    tiling.set_prenum(prenum);
+    tiling.set_sufnum(sufnum);
+    tiling.set_presize(presize);
+    tiling.set_sufsize(sufsize);
     tiling.set_block_size(block_size);
-    tiling.set_aivNum(aivNum);
-    tiling.set_core_size(core_size);
-    tiling.set_core_remain(core_remain);
 
-    context->SetBlockDim(aivNum);
+    std::cout<<aivNum<<" "<<prenum<<" "<<sufnum<<" "<<presize<<" "<<sufsize<<" "<<block_size<<"hh\n";
+    context->SetBlockDim(N);
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());

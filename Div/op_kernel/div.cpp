@@ -16,11 +16,11 @@ public:
 
         x1Gm.SetGlobalBuffer((__gm__ DTYPE_X1*)x1, this->coreDataNum);
         x2Gm.SetGlobalBuffer((__gm__ DTYPE_X2*)x2, this->coreDataNum);
-        yGm.SetGlobalBuffer((__gm__ DTYPE_Y*)y, this->coreDataNum);
+        yGm.SetGlobalBuffer((__gm__ DTYPE_X1*)y, this->coreDataNum);
 
         pipe.InitBuffer(inQueueX1, BUFFER_NUM, this->tileDataNum * sizeof(DTYPE_X1));
         pipe.InitBuffer(inQueueX2, BUFFER_NUM, this->tileDataNum * sizeof(DTYPE_X2));
-        pipe.InitBuffer(outQueueY, BUFFER_NUM, this->tileDataNum * sizeof(DTYPE_Y));
+        pipe.InitBuffer(outQueueY, BUFFER_NUM, this->tileDataNum * sizeof(DTYPE_X1));
 
         if constexpr (std::is_same_v<DTYPE_X1, int8_t>)
         {
@@ -36,6 +36,7 @@ public:
         {
             pipe.InitBuffer(tmp1, this->tileDataNum * sizeof(float));
             pipe.InitBuffer(tmp2, this->tileDataNum * sizeof(float));
+            pipe.InitBuffer(tmp3, this->tileDataNum * sizeof(float));
         }
 
     }
@@ -67,7 +68,7 @@ private:
     {
         LocalTensor<DTYPE_X1> x1Local = inQueueX1.DeQue<DTYPE_X1>();
         LocalTensor<DTYPE_X2> x2Local = inQueueX2.DeQue<DTYPE_X2>();
-        LocalTensor<DTYPE_Y> yLocal = outQueueY.AllocTensor<DTYPE_Y>();
+        LocalTensor<DTYPE_X1> yLocal = outQueueY.AllocTensor<DTYPE_X1>();
 
         if constexpr (std::is_same_v<DTYPE_X1, int8_t>)
         {
@@ -98,24 +99,28 @@ private:
             Cast(p1, x1Local, RoundMode::CAST_NONE, this->processDataNum);//fp16转为float
             LocalTensor<float> p2 = tmp2.Get<float>();
             Cast(p2, x2Local, RoundMode::CAST_NONE, this->processDataNum);//fp16转为float
-
+            // LocalTensor<float> p3 = tmp2.Get<float>();
+            // Duplicate(p3, float(1.0), this->processDataNum);
+            Muls(p1, p1, float(10000), this->processDataNum);
+            Muls(p2, p2, float(10000), this->processDataNum);
             Div(p1, p1, p2, this->processDataNum);
 
-            Cast(yLocal, p1, RoundMode::CAST_NONE, this->processDataNum);//float->fp16
+            // Mul(p1, p1, p3, this->processDataNum);
+
+            Cast(yLocal, p1, RoundMode::CAST_RINT, this->processDataNum);//float->fp16
         }
         else if constexpr (std::is_same_v<DTYPE_X1, float>)
         {
             Div(yLocal, x1Local, x2Local, this->processDataNum);
         }
-        else assert(false);
 
-        outQueueY.EnQue<DTYPE_Y>(yLocal);
+        outQueueY.EnQue<DTYPE_X1>(yLocal);
         inQueueX1.FreeTensor(x1Local);
         inQueueX2.FreeTensor(x2Local);
     }
     __aicore__ inline void CopyOut(int32_t progress)
     {
-        LocalTensor<DTYPE_Y> yLocal = outQueueY.DeQue<DTYPE_Y>();
+        LocalTensor<DTYPE_X1> yLocal = outQueueY.DeQue<DTYPE_X1>();
         DataCopy(yGm[progress * this->tileDataNum], yLocal, this->processDataNum);
         outQueueY.FreeTensor(yLocal);
     }
@@ -124,10 +129,10 @@ private:
     TPipe pipe;
     TQue<QuePosition::VECIN, BUFFER_NUM> inQueueX1,inQueueX2;
     TQue<QuePosition::VECOUT, BUFFER_NUM> outQueueY;
-    TBuf<QuePosition::VECCALC> tmp1, tmp2;
+    TBuf<QuePosition::VECCALC> tmp1, tmp2, tmp3;
     GlobalTensor<DTYPE_X1> x1Gm;
     GlobalTensor<DTYPE_X2> x2Gm;
-    GlobalTensor<DTYPE_Y> yGm;
+    GlobalTensor<DTYPE_X1> yGm;
     uint32_t coreDataNum;
     uint32_t tileNum;
     uint32_t tileDataNum;

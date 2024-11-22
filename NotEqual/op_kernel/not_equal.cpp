@@ -10,7 +10,6 @@ public:
         ASSERT(GetBlockNum() != 0 && "block dim can not be zero!");
         this->blockLength = core_size + (GetBlockNum() == GetBlockIdx() + 1 ? core_remain : 0);
         this->tileLength = block_size;
-        this->blockLength = this->blockLength + (this->blockLength % ALIGN_NUM ? ALIGN_NUM - this->blockLength % ALIGN_NUM : 0);
 
         auto startPointer = core_size * GetBlockIdx();
         auto bufferlength = this->blockLength;
@@ -105,7 +104,6 @@ private:
                 Cast(val, x1, RoundMode::CAST_NONE, length);
                 Cast(float_zero, x2, RoundMode::CAST_NONE, length);
                 Compare(bits, val, float_zero, CMPMODE::EQ, length);
-                //Compare(bits, x1, x2, CMPMODE::EQ, length);
             }
             Select(result, bits, zero, half(1), SELMODE::VSEL_TENSOR_SCALAR_MODE, length);
             Cast(inty, result, RoundMode::CAST_ROUND, length);
