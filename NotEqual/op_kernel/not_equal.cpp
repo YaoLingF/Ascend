@@ -1,5 +1,6 @@
 #include "kernel_operator.h"
 #include <type_traits>
+
 using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;
 class KernelNotEqual {
@@ -97,13 +98,34 @@ private:
             else if constexpr (std::is_same_v<T, float>) {
                 Compare(bits, x1, x2, CMPMODE::EQ, length);
             }
-            else { //half
-            //assert(false);
+            else 
+            {   //half
             	auto val = B_x1.Get<float>();
                 auto float_zero = B_x2.Get<float>();
                 Cast(val, x1, RoundMode::CAST_NONE, length);
                 Cast(float_zero, x2, RoundMode::CAST_NONE, length);
                 Compare(bits, val, float_zero, CMPMODE::EQ, length);
+
+                // for(int i=0;i<length;i++)
+                // {
+                //     float v1 = (float)x1.GetValue(i);
+                //     printf("%f ",v1);
+                //     float v2 = (float)x2.GetValue(i);
+                //     printf("%f ",v2);
+                //     if(v1-v2<(float)1.0) 
+                //     {
+                //         printf("A ");
+                //         printf("%f %f\n",v1,v2);
+                //         bits.SetValue(i,uint8_t(1));
+                //     }
+                //     else 
+                //     {
+                //         printf("B ");
+                //         printf("%f %f\n",v1,v2);
+                //         bits.SetValue(i,uint8_t(0));
+                //     }
+
+                // }
             }
             Select(result, bits, zero, half(1), SELMODE::VSEL_TENSOR_SCALAR_MODE, length);
             Cast(inty, result, RoundMode::CAST_ROUND, length);

@@ -72,9 +72,8 @@ else
   cmake_run_package $target
 fi
 
-
 cd build_out
-./custom_opp_ubuntu_aarch64.run
+./custom_opp_euleros_aarch64.run
 cd ..
 # for debug
 # cd build_out

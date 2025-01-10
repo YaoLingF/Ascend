@@ -95,19 +95,24 @@ private:
         
         else if constexpr (std::is_same_v<DTYPE_X1, half>)
         {
-            LocalTensor<float> p1 = tmp1.Get<float>();
-            Cast(p1, x1Local, RoundMode::CAST_NONE, this->processDataNum);//fp16转为float
-            LocalTensor<float> p2 = tmp2.Get<float>();
-            Cast(p2, x2Local, RoundMode::CAST_NONE, this->processDataNum);//fp16转为float
-            // LocalTensor<float> p3 = tmp2.Get<float>();
-            // Duplicate(p3, float(1.0), this->processDataNum);
-            Muls(p1, p1, float(10000), this->processDataNum);
-            Muls(p2, p2, float(10000), this->processDataNum);
-            Div(p1, p1, p2, this->processDataNum);
+            // LocalTensor<float> p1 = tmp1.Get<float>();
+            // Cast(p1, x1Local, RoundMode::CAST_NONE, this->processDataNum);//fp16转为float
+            // LocalTensor<float> p2 = tmp2.Get<float>();
+            // Cast(p2, x2Local, RoundMode::CAST_NONE, this->processDataNum);//fp16转为float
+            
+            // Muls(p1, p1, float(10000), this->processDataNum);
+            // Muls(p2, p2, float(10000), this->processDataNum);
+            // Div(p1, p1, p2, this->processDataNum);
 
-            // Mul(p1, p1, p3, this->processDataNum);
+            // Cast(yLocal, p1, RoundMode::CAST_RINT, this->processDataNum);//float->fp16
 
-            Cast(yLocal, p1, RoundMode::CAST_RINT, this->processDataNum);//float->fp16
+            for(int i=0;i<this->processDataNum;i++)
+            {
+                half x1 = x1Local.GetValue(i);
+                half x2 = x2Local.GetValue(i);
+                float d = float(x1)/float(x2);
+                yLocal.SetValue(i,half(d));
+            }
         }
         else if constexpr (std::is_same_v<DTYPE_X1, float>)
         {

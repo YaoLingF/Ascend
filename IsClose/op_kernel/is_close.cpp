@@ -40,6 +40,8 @@ public:
         else if constexpr (std::is_same_v<T, uint8_t>) {
             pipe.InitBuffer(B_x1, this->tileLength * sizeof(half));
             pipe.InitBuffer(B_x2, this->tileLength * sizeof(half));
+            pipe.InitBuffer(B_x3, this->tileLength * sizeof(float));
+            pipe.InitBuffer(B_x4, this->tileLength * sizeof(float));
         }
     }
     __aicore__ inline void Process() {
@@ -73,20 +75,27 @@ private:
         auto inty = y.template ReinterpretCast<uint8_t>();
         if constexpr (std::is_same_v<T, uint8_t>) 
         {
-            assert(nan==false);
-            auto float_x1 = B_x1.Get<half>();
-            auto float_x2 = B_x2.Get<half>();
-            Cast(float_x1, x1, RoundMode::CAST_NONE, length);
-            Cast(float_x2, x2, RoundMode::CAST_NONE, length);
+            assert(length%32==0);
+            auto floatx1 = B_x1.Get<half>();
+            auto floatx2 = B_x2.Get<half>();
+            auto float_x1 = B_x3.Get<float>();
+            auto float_x2 = B_x4.Get<float>();
+            Cast(floatx1, x1, RoundMode::CAST_NONE, length);
+            Cast(floatx2, x2, RoundMode::CAST_NONE, length);
+            Cast(float_x1, floatx1, RoundMode::CAST_NONE, length);
+            Cast(float_x2, floatx2, RoundMode::CAST_NONE, length);
             Sub(float_x1,float_x1,float_x2,length);
             Abs(float_x1,float_x1,length);
             Abs(float_x2,float_x2,length);
-            Muls(float_x2,float_x2,half(rtol),length);
-            Adds(float_x2,float_x2,half(atol),length);
+            Muls(float_x2,float_x2,rtol,length);
+            //Adds(float_x2,float_x2,atol,length);
+            Sub(float_x1,float_x1,float_x2,length);
+            Duplicate(float_x2,float(atol),length);
             Compare(bits, float_x1, float_x2, CMPMODE::GT, length);
         }
         else if constexpr (std::is_same_v<T, int32_t>) 
         {
+            assert(length%8==0);
                 auto val = B_x1.Get<float>();
                 auto float_zero = B_x2.Get<float>();
                 Cast(val, x1, RoundMode::CAST_NONE, length);
@@ -100,6 +109,7 @@ private:
         }
         else if constexpr (std::is_same_v<T, float>) 
         {
+            assert(length%8==0);
                 Sub(x1,x1,x2,length);
                 Abs(x1,x1,length);
                 Abs(x2,x2,length);
@@ -109,6 +119,7 @@ private:
         }
         else if constexpr (std::is_same_v<T, half>)
         { //half
+        assert(length%16==0);
                 Sub(x1,x1,x2,length);
                 Abs(x1,x1,length);
                 Abs(x2,x2,length);
@@ -134,7 +145,7 @@ private:
     TQue<QuePosition::VECIN, BUFFER_NUM> Q_x1, Q_x2;
     TQue<QuePosition::VECOUT, BUFFER_NUM> Q_y;
     TBuf<QuePosition::VECCALC> B_result, B_zero, B_bits;
-    TBuf<QuePosition::VECCALC> B_x1, B_x2;
+    TBuf<QuePosition::VECCALC> B_x1, B_x2, B_x3, B_x4;
     LocalTensor<half> zero;
     GlobalTensor<TYPE_X1> Gm_x1;
     GlobalTensor<TYPE_X2> Gm_x2;

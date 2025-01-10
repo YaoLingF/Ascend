@@ -60,7 +60,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_core_size(core_size);
     tiling.set_core_remain(core_remain);
 
-    context->SetBlockDim(aivNum);
+    context->SetBlockDim(1);
 
     tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
     context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
