@@ -11,6 +11,9 @@ BEGIN_TILING_DATA_DEF(NotEqualTilingData)
   TILING_DATA_FIELD_DEF(uint32_t, aivNum);
   TILING_DATA_FIELD_DEF(uint32_t, core_size);
   TILING_DATA_FIELD_DEF(uint32_t, core_remain);
+  TILING_DATA_FIELD_DEF(int32_t, ts);
+  TILING_DATA_FIELD_DEF(int32_t, size);
+
   
 
 END_TILING_DATA_DEF;

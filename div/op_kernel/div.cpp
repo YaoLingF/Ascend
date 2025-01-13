@@ -1,7 +1,47 @@
 #include "kernel_operator.h"
 #include <type_traits>
+#include<cassert>
 using namespace AscendC;
-constexpr int32_t BUFFER_NUM = 2;                                     
+constexpr int32_t BUFFER_NUM = 2;                                    
+
+template<typename TYPE_X> class KernelDiv1 {
+
+public:
+    __aicore__ inline KernelDiv1() {}
+    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, int32_t size) 
+    {
+        x1Gm.SetGlobalBuffer((__gm__ TYPE_X*)x1, size);
+        x2Gm.SetGlobalBuffer((__gm__ TYPE_X*)x2, size);
+        yGm.SetGlobalBuffer((__gm__ TYPE_X*)y, size);
+        
+            for(int i=0;i<size;i++)
+            {
+                float k1=(float)(x1Gm.GetValue(i));
+                float k2=(float)(x2Gm.GetValue(i));
+                float k=k1/k2;
+                yGm.SetValue(i,(TYPE_X)k);
+                
+            }
+
+        
+
+    }
+    
+
+
+private:
+    TPipe pipe;
+
+    GlobalTensor<DTYPE_X1> x1Gm;
+    GlobalTensor<DTYPE_X2> x2Gm;
+    GlobalTensor<DTYPE_X1> yGm;
+
+};
+
+
+
+
+
 
 class KernelDiv {
 
@@ -149,7 +189,15 @@ private:
 extern "C" __global__ __aicore__ void div(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
     // TODO: user kernel impl
-    KernelDiv op;
-    op.Init(x1, x2, y, tiling_data.CoreDataNum, tiling_data.finalTileNum, tiling_data.tileDataNum, tiling_data.TailDataNum);  
-    op.Process();
+    if(tiling_data.ts==2)
+    {
+        KernelDiv1<DTYPE_X1> op;
+        op.Init(x1, x2, y, tiling_data.size);  
+    }
+    else
+    {
+        KernelDiv op;
+        op.Init(x1, x2, y, tiling_data.CoreDataNum, tiling_data.finalTileNum, tiling_data.tileDataNum, tiling_data.TailDataNum);  
+        op.Process();
+    }
 }

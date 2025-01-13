@@ -1,0 +1,1 @@
+/usr/local/Ascend/ascend-toolkit/8.0.RC3.alpha003/python/site-packages/bin/msopgen gen -i op.json -f tf -c ai_core-Ascend310B -lan cpp -out operator

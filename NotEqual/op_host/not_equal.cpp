@@ -1,4 +1,3 @@
-
 #include "not_equal_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -6,11 +5,14 @@
 
 namespace optiling {
     const uint32_t BLOCK_SIZE = 32;
-
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
-    NotEqualTilingData tiling;
+  NotEqualTilingData tiling;
+  const gert::StorageShape* x1_shape = context->GetInputShape(0);
+  int32_t data_sz = 1;
+  for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
+    data_sz *= x1_shape->GetStorageShape().GetDim(i);
 
     int32_t NUM = 24;
     uint32_t sizeofdatatype;
@@ -23,12 +25,15 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
     uint32_t totalLength = context->GetInputTensor(0)->GetShapeSize();
     auto dt = context->GetInputTensor(0)->GetDataType();
+    int32_t ts=0;
     if(dt == ge::DT_INT8){
         sizeofdatatype = 1;
         NUM = 15;
     }else if(dt == ge::DT_FLOAT16){
         sizeofdatatype = 2;
         NUM = 20;
+        ts=1;
+
     }
     else if (dt == ge::DT_INT32) {
         sizeofdatatype = 4;
@@ -59,15 +64,13 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_aivNum(aivNum);
     tiling.set_core_size(core_size);
     tiling.set_core_remain(core_remain);
+  tiling.set_size(data_sz);
+  tiling.set_ts(ts);
+  context->SetBlockDim(1);
+  tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
+  context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
-    context->SetBlockDim(1);
-
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] = 0;
-    return ge::GRAPH_SUCCESS;
-
+  return ge::GRAPH_SUCCESS;
 }
 }
 
@@ -90,12 +93,12 @@ public:
     {
         this->Input("x1")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_INT32, ge::DT_INT8})
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_INT32, ge::DT_INT8})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Input("x2")
             .ParamType(REQUIRED)
-            .DataType({ge::DT_FLOAT16, ge::DT_FLOAT, ge::DT_INT32, ge::DT_INT8})
+            .DataType({ge::DT_FLOAT, ge::DT_FLOAT16, ge::DT_INT32, ge::DT_INT8})
             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
         this->Output("y")

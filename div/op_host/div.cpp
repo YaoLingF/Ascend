@@ -1,14 +1,32 @@
-
 #include "div_tiling.h"
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
-#include <algorithm>
+#include<cassert>
 
 namespace optiling {
     const uint32_t BLOCK_SIZE = 32;
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
-    DivTilingData tiling;
+
+  DivTilingData tiling;
+  const gert::StorageShape* x1_shape = context->GetInputShape(0);
+  
+  int32_t data_sz = 1;
+  int32_t shape[3];
+  int32_t dim=x1_shape->GetStorageShape().GetDimNum();
+  for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
+    data_sz *= x1_shape->GetStorageShape().GetDim(i);
+
+    auto dt = context->GetInputTensor(0)->GetDataType();
+    int32_t ts;
+    if(dt == ge::DT_FLOAT16){
+        if(dim!=2)
+        {
+            assert(dim==3);
+        }
+        ts=1;
+    }
+
     uint64_t ubSize;
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
     // auto socVersion = ascendcPlatform.GetSocVersion();
@@ -45,15 +63,13 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_tileDataNum(tileDataNum); //每次处理的数据量
     tiling.set_TailDataNum(TailDataNum); //最后一次需要处理的数据量
 
-    std::cout<<CoreDataNum<<"\n"<<finalTileNum<<"\n"<<tileDataNum<<"\n"<<TailDataNum<<"\n"<<inputNum<<"\n"<<inputBytes<<"\n";
-    
-    
-    context->SetBlockDim(1);
-    tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
-    context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
-    size_t *currentWorkspace = context->GetWorkspaceSizes(1);
-    currentWorkspace[0] = 0;
-    return ge::GRAPH_SUCCESS;
+  tiling.set_size(data_sz);
+  tiling.set_ts(ts);
+  context->SetBlockDim(1);
+  tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
+  context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
+
+  return ge::GRAPH_SUCCESS;
 }
 }
 

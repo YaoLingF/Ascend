@@ -1,19 +1,39 @@
 
 #include "non_max_suppression_tiling.h"
 #include "register/op_def_registry.h"
-
+#include<cassert>
 
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
   NonMaxSuppressionTilingData tiling;
-  const gert::StorageShape* x1_shape = context->GetInputShape(0);
-  int32_t data_sz = 1;
-  for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
-    data_sz *= x1_shape->GetStorageShape().GetDim(i);
-  tiling.set_size(data_sz);
-  context->SetBlockDim(8);
+  const gert::StorageShape* x1_shape = context->GetInputShape(1);
+
+  int32_t type = *context->GetAttrs()->GetInt(0);//1 
+
+  int32_t batch = x1_shape->GetStorageShape().GetDim(0);
+
+  int32_t classes = x1_shape->GetStorageShape().GetDim(1);
+  
+  int32_t num = x1_shape->GetStorageShape().GetDim(2);;
+
+  assert(type==0);
+
+
+  
+  
+    //assert(num==1024);
+  
+
+  std::cout<<type<<" "<<batch<<" "<<classes<<" "<<num<<"\n";
+
+  tiling.set_type(type);
+  tiling.set_batch(batch);
+  tiling.set_classes(classes);
+  tiling.set_num(num);
+  
+  context->SetBlockDim(1);
   tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
   context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());
 
@@ -68,6 +88,7 @@ public:
             .DataType({ge::DT_INT32})
             .Format({ge::FORMAT_ND})
             .UnknownShapeFormat({ge::FORMAT_ND});
+        this->Attr("center_point_box").AttrType(OPTIONAL).Int(0);
 
         this->SetInferShape(ge::InferShape);
 

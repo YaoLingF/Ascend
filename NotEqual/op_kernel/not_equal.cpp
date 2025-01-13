@@ -1,8 +1,41 @@
 #include "kernel_operator.h"
 #include <type_traits>
-
 using namespace AscendC;
-constexpr int32_t BUFFER_NUM = 2;
+constexpr int32_t BUFFER_NUM = 2;                                    
+
+template<typename TYPE_X> class KernelNotEqual1 {
+
+public:
+    __aicore__ inline KernelNotEqual1() {}
+    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, int32_t size) 
+    {
+        x1Gm.SetGlobalBuffer((__gm__ TYPE_X*)x1, size);
+        x2Gm.SetGlobalBuffer((__gm__ TYPE_X*)x2, size);
+        yGm.SetGlobalBuffer((__gm__ DTYPE_Y*)y, size);
+        
+        for(int i=0;i<size;i++)
+        {
+            float k1=(float)(x1Gm.GetValue(i));
+            float k2=(float)(x2Gm.GetValue(i));
+            float dif=k1>k2?k1-k2:k2-k1;
+            if(dif<float(1e-6)) yGm.SetValue(i,false);
+            else yGm.SetValue(i,true);
+            
+        }
+    }
+    
+private:
+    TPipe pipe;
+
+    GlobalTensor<DTYPE_X1> x1Gm;
+    GlobalTensor<DTYPE_X2> x2Gm;
+    GlobalTensor<DTYPE_Y> yGm;
+
+};
+
+
+
+
 class KernelNotEqual {
     using T = DTYPE_X1;
 public:
@@ -156,7 +189,16 @@ private:
 };
 extern "C" __global__ __aicore__ void not_equal(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
-    KernelNotEqual op;
-    op.Init(x1, x2, y, tiling_data.totalLength, tiling_data.ALIGN_NUM, tiling_data.block_size, tiling_data.core_size, tiling_data.core_remain);
-    op.Process();
+
+    if(tiling_data.ts==1)
+    {
+        KernelNotEqual1<DTYPE_X1> op;
+        op.Init(x1, x2, y, tiling_data.size);  
+    }
+    else
+    {
+        KernelNotEqual op;
+        op.Init(x1, x2, y, tiling_data.totalLength, tiling_data.ALIGN_NUM, tiling_data.block_size, tiling_data.core_size, tiling_data.core_remain);
+        op.Process();
+    }
 }
