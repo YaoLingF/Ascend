@@ -13,6 +13,8 @@ BEGIN_TILING_DATA_DEF(NotEqualTilingData)
   TILING_DATA_FIELD_DEF(uint32_t, core_remain);
   TILING_DATA_FIELD_DEF(int32_t, ts);
   TILING_DATA_FIELD_DEF(int32_t, size);
+  TILING_DATA_FIELD_DEF_ARR(int32_t, 3, shape);
+
 
   
 

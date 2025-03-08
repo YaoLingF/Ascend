@@ -10,22 +10,33 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
   DivTilingData tiling;
   const gert::StorageShape* x1_shape = context->GetInputShape(0);
+
+  const gert::StorageShape* x2_shape = context->GetInputShape(1);
   
   int32_t data_sz = 1;
-  int32_t shape[3];
+  int32_t shape[3]={1,1,1};
+  int32_t shape2[3]={1,1,1};
   int32_t dim=x1_shape->GetStorageShape().GetDimNum();
+  int32_t dim2=x2_shape->GetStorageShape().GetDimNum();
   for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
+  {
     data_sz *= x1_shape->GetStorageShape().GetDim(i);
+    shape[i]=x1_shape->GetStorageShape().GetDim(i);
+  }
+
+  for (int i = 0; i < x2_shape->GetStorageShape().GetDimNum(); i++)
+  {
+    shape2[i]=x2_shape->GetStorageShape().GetDim(i);
+  }
 
     auto dt = context->GetInputTensor(0)->GetDataType();
-    int32_t ts;
-    if(dt == ge::DT_FLOAT16){
-        if(dim!=2)
-        {
-            assert(dim==3);
-        }
-        ts=1;
-    }
+    int32_t ts=0;
+
+
+    if(shape[0]!=shape2[0]||shape[1]!=shape2[1]||shape[2]!=shape2[2])
+    {    
+        ts=2;
+     }
 
     uint64_t ubSize;
     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
@@ -65,6 +76,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
   tiling.set_size(data_sz);
   tiling.set_ts(ts);
+  tiling.set_shape(shape2);
   context->SetBlockDim(1);
   tiling.SaveToBuffer(context->GetRawTilingData()->GetData(), context->GetRawTilingData()->GetCapacity());
   context->GetRawTilingData()->SetDataSize(tiling.GetDataSize());

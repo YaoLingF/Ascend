@@ -21,13 +21,13 @@ public:
 
         Gm_x1.SetGlobalBuffer((__gm__ TYPE_X1*)x1 + startPointer, this->blockLength);
         Gm_x2.SetGlobalBuffer((__gm__ TYPE_X2*)x2 + startPointer, this->blockLength);
-        Gm_y.SetGlobalBuffer((__gm__ TYPE_Y*)y + startPointer, this->blockLength);
+        Gm_y.SetGlobalBuffer((__gm__ uint8_t*)y + startPointer, this->blockLength);
 
         this->tileNum = this->blockLength / this->tileLength + (this->blockLength % this->tileLength > 0);
 
         pipe.InitBuffer(Q_x1, BUFFER_NUM, this->tileLength * sizeof(TYPE_X1));
         pipe.InitBuffer(Q_x2, BUFFER_NUM, this->tileLength * sizeof(TYPE_X2));
-        pipe.InitBuffer(Q_y, BUFFER_NUM, this->tileLength * sizeof(TYPE_Y));
+        pipe.InitBuffer(Q_y, BUFFER_NUM, this->tileLength * sizeof(uint8_t));
         pipe.InitBuffer(B_bits, this->tileLength * sizeof(uint8_t));
         pipe.InitBuffer(B_result, this->tileLength * sizeof(half));
         pipe.InitBuffer(B_zero, this->tileLength * sizeof(half));
@@ -69,7 +69,7 @@ private:
     __aicore__ inline void Compute(int32_t progress, uint32_t length) {
         LocalTensor<TYPE_X1> x1 = Q_x1.DeQue<TYPE_X1>();
         LocalTensor<TYPE_X2> x2 = Q_x2.DeQue<TYPE_X2>();
-        LocalTensor<TYPE_Y> y = Q_y.AllocTensor<TYPE_Y>();
+        LocalTensor<uint8_t> y = Q_y.AllocTensor<uint8_t>();
         auto bits = B_bits.Get<uint8_t>();
         auto result = B_result.Get<half>();
         auto inty = y.template ReinterpretCast<uint8_t>();
@@ -132,10 +132,10 @@ private:
         
         Q_x1.FreeTensor(x1);
         Q_x2.FreeTensor(x2);
-        Q_y.EnQue<TYPE_Y>(y);
+        Q_y.EnQue<uint8_t>(y);
     }
     __aicore__ inline void CopyOut(int32_t progress, uint32_t length) {
-        LocalTensor<TYPE_Y> y = Q_y.DeQue<TYPE_Y>();
+        LocalTensor<uint8_t> y = Q_y.DeQue<uint8_t>();
         DataCopy(Gm_y[progress * this->tileLength], y, length);
         Q_y.FreeTensor(y);
     }
@@ -149,7 +149,7 @@ private:
     LocalTensor<half> zero;
     GlobalTensor<TYPE_X1> Gm_x1;
     GlobalTensor<TYPE_X2> Gm_x2;
-    GlobalTensor<TYPE_Y> Gm_y;
+    GlobalTensor<uint8_t> Gm_y;
     uint32_t blockLength;
     uint32_t tileNum;
     uint32_t tileLength;
@@ -159,10 +159,69 @@ private:
     bool nan;
 
 };
+
+template<typename TYPE_X1, typename TYPE_X2, typename TYPE_Y>
+class KernelIsClose1 {
+    using T = TYPE_X1;
+public:
+    __aicore__ inline KernelIsClose1() {}
+    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y,uint32_t size,int32_t ts, float rtol, float atol, bool nan,int32_t *shape) {
+       if constexpr (std::is_same_v<T, uint8_t>) 
+       {
+            
+            Gm_x1.SetGlobalBuffer((__gm__ TYPE_X1*)x1, shape[3]);
+            Gm_x2.SetGlobalBuffer((__gm__ TYPE_X2*)x2 , shape[0]*shape[1]*shape[2]*shape[3]);
+            Gm_y.SetGlobalBuffer((__gm__ TYPE_Y*)y , shape[0]*shape[1]*shape[2]*shape[3]);
+
+            for(int i=0;i<shape[0];i++)
+            {
+                for(int j=0;j<shape[1];j++)
+                {
+                    for(int k=0;k<shape[2];k++)
+                    {
+                        for(int z=0;z<shape[3];z++)
+                        {
+                            float x1=(float)(int32_t(Gm_x1.GetValue(z)));
+                            float x2=(float)(int32_t(Gm_x2.GetValue(i*shape[1]*shape[2]*shape[3]+j*shape[2]*shape[3]+k*shape[3]+z)));
+
+                            float ans1=x1>x2?x1-x2:x2-x1;
+                            float ans2=atol+rtol*(x2>0?x2:-x2);
+
+                            if(ans1<=ans2) Gm_y.SetValue(i*shape[1]*shape[2]*shape[3]+j*shape[2]*shape[3]+k*shape[3]+z,true);
+                            else Gm_y.SetValue(i*shape[1]*shape[2]*shape[3]+j*shape[2]*shape[3]+k*shape[3]+z,false);
+                        }
+                    }
+                }
+            }
+       }
+
+    }
+    
+private:
+    TPipe pipe;
+
+    GlobalTensor<TYPE_X1> Gm_x1;
+    GlobalTensor<TYPE_X2> Gm_x2;
+    GlobalTensor<TYPE_Y> Gm_y;
+
+
+    float rtol;
+    float atol;
+    bool nan;
+
+};
 extern "C" __global__ __aicore__ void is_close(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
-    // TODO: user kernel impl
-    KernelIsClose<DTYPE_X1, DTYPE_X2, DTYPE_Y> op;
-    op.Init(x1, x2, y, tiling_data.totalLength, tiling_data.ALIGN_NUM, tiling_data.block_size, tiling_data.core_size, tiling_data.core_remain, tiling_data.rtol, tiling_data.atol, tiling_data.nan);
-    op.Process();
+
+    if(tiling_data.ts==1)
+    {
+        KernelIsClose1<DTYPE_X1, DTYPE_X2, DTYPE_Y> op;
+        op.Init(x1, x2, y, tiling_data.totalLength,tiling_data.ts, tiling_data.rtol, tiling_data.atol, tiling_data.nan,tiling_data.shape);
+    }
+    else
+    {
+        KernelIsClose<DTYPE_X1, DTYPE_X2, DTYPE_Y> op;
+        op.Init(x1, x2, y, tiling_data.totalLength, tiling_data.ALIGN_NUM, tiling_data.block_size, tiling_data.core_size, tiling_data.core_remain, tiling_data.rtol, tiling_data.atol, tiling_data.nan);
+        op.Process();
+    }
 }

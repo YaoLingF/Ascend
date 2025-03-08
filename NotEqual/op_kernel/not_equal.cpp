@@ -7,21 +7,30 @@ template<typename TYPE_X> class KernelNotEqual1 {
 
 public:
     __aicore__ inline KernelNotEqual1() {}
-    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, int32_t size) 
+    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, int32_t size,int32_t *shape) 
     {
-        x1Gm.SetGlobalBuffer((__gm__ TYPE_X*)x1, size);
-        x2Gm.SetGlobalBuffer((__gm__ TYPE_X*)x2, size);
-        yGm.SetGlobalBuffer((__gm__ DTYPE_Y*)y, size);
-        
-        for(int i=0;i<size;i++)
+        x1Gm.SetGlobalBuffer((__gm__ TYPE_X*)x1, shape[0]*shape[2]);
+        x2Gm.SetGlobalBuffer((__gm__ TYPE_X*)x2, shape[0]*shape[1]*shape[2]);
+        yGm.SetGlobalBuffer((__gm__ DTYPE_Y*)y, shape[0]*shape[1]*shape[2]);
+
+         for(int i=0;i<shape[0];i++)
         {
-            float k1=(float)(x1Gm.GetValue(i));
-            float k2=(float)(x2Gm.GetValue(i));
-            float dif=k1>k2?k1-k2:k2-k1;
-            if(dif<float(1e-6)) yGm.SetValue(i,false);
-            else yGm.SetValue(i,true);
-            
+            for(int j=0;j<shape[1];j++)
+            {
+                for(int z=0;z<shape[2];z++)
+                {
+                    float k1=(float)(x1Gm.GetValue(i*shape[2]+z));
+                    float k2=(float)(x2Gm.GetValue(i*shape[1]*shape[2]+j*shape[2]+z));
+                    float dif=k1>k2?k1-k2:k2-k1;
+                    if(dif<float(1e-5)) yGm.SetValue(i*shape[1]*shape[2]+j*shape[2]+z,false);
+                    else yGm.SetValue(i*shape[1]*shape[2]+j*shape[2]+z,true);
+
+                }
+            }
         }
+        
+        
+        
     }
     
 private:
@@ -193,7 +202,7 @@ extern "C" __global__ __aicore__ void not_equal(GM_ADDR x1, GM_ADDR x2, GM_ADDR 
     if(tiling_data.ts==1)
     {
         KernelNotEqual1<DTYPE_X1> op;
-        op.Init(x1, x2, y, tiling_data.size);  
+        op.Init(x1, x2, y, tiling_data.size,tiling_data.shape);  
     }
     else
     {

@@ -18,12 +18,8 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
   
   int32_t num = x1_shape->GetStorageShape().GetDim(2);;
 
-  assert(type==0);
 
 
-  
-  
-    //assert(num==1024);
   
 
   std::cout<<type<<" "<<batch<<" "<<classes<<" "<<num<<"\n";

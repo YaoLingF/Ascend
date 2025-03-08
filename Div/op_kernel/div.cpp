@@ -1,6 +1,7 @@
 #include "kernel_operator.h"
 #include <type_traits>
-#include<cassert>
+#include<limits>
+#include<cmath>
 using namespace AscendC;
 constexpr int32_t BUFFER_NUM = 2;                                    
 
@@ -8,20 +9,34 @@ template<typename TYPE_X> class KernelDiv1 {
 
 public:
     __aicore__ inline KernelDiv1() {}
-    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, int32_t size) 
+    __aicore__ inline void Init(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, int32_t size, int32_t *shape) 
     {
-        x1Gm.SetGlobalBuffer((__gm__ TYPE_X*)x1, size);
-        x2Gm.SetGlobalBuffer((__gm__ TYPE_X*)x2, size);
-        yGm.SetGlobalBuffer((__gm__ TYPE_X*)y, size);
-        
-            for(int i=0;i<size;i++)
+
+        x1Gm.SetGlobalBuffer((__gm__ TYPE_X*)x1, shape[1]*shape[2]);
+        x2Gm.SetGlobalBuffer((__gm__ TYPE_X*)x2, shape[0]*shape[1]*shape[2]);
+        yGm.SetGlobalBuffer((__gm__ TYPE_X*)y, shape[0]*shape[1]*shape[2]);
+
+        printf("%d %d %d\nhhh",shape[0],shape[1],shape[2]);
+
+        for(int i=0;i<shape[0];i++)
+        {
+            for(int j=0;j<shape[1];j++)
             {
-                float k1=(float)(x1Gm.GetValue(i));
-                float k2=(float)(x2Gm.GetValue(i));
-                float k=k1/k2;
-                yGm.SetValue(i,(TYPE_X)k);
-                
+                for(int z=0;z<shape[2];z++)
+                {
+                    float k1=(float)(x1Gm.GetValue(j*shape[2]+z));
+                    float k2=(float)(x2Gm.GetValue(i*shape[1]*shape[2]+j*shape[2]+z));
+                    float k=k1/k2;
+
+                    yGm.SetValue(i*shape[1]*shape[2]+j*shape[2]+z,(TYPE_X)k);
+                }
             }
+        }
+        
+
+
+        
+           
 
         
 
@@ -35,6 +50,8 @@ private:
     GlobalTensor<DTYPE_X1> x1Gm;
     GlobalTensor<DTYPE_X2> x2Gm;
     GlobalTensor<DTYPE_X1> yGm;
+    TQue<QuePosition::VECIN, BUFFER_NUM> X;
+
 
 };
 
@@ -192,7 +209,7 @@ extern "C" __global__ __aicore__ void div(GM_ADDR x1, GM_ADDR x2, GM_ADDR y, GM_
     if(tiling_data.ts==2)
     {
         KernelDiv1<DTYPE_X1> op;
-        op.Init(x1, x2, y, tiling_data.size);  
+        op.Init(x1, x2, y, tiling_data.size, tiling_data.shape);  
     }
     else
     {

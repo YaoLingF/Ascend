@@ -73,11 +73,6 @@ else
 fi
 
 
-cd build_out
-./custom_opp_ubuntu_aarch64.run
-cd ..
-
-
 # for debug
 # cd build_out
 # make

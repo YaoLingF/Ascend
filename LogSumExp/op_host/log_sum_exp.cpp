@@ -29,9 +29,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     std::cout << "z[0]: " << z[0] << "\n";
     std::cout << "z[1]: " << z[1] << "\n";
     
-
-
-    
     for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
     {
         
@@ -40,34 +37,16 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
         else shape[2]*=x1_shape->GetStorageShape().GetDim(i);
         printf("%ld\n",x1_shape->GetStorageShape().GetDim(i));
     }
-
-    int32_t ts=0;
     
+    int32_t ts=0;
+
+
+    int32_t corenum=1;
+
     if(x==2)
     {
-        int dim = x1_shape->GetStorageShape().GetDimNum();
-        if(dt == ge::DT_FLOAT16)
-        {
+       
             ts=1;
-            assert(dim==3);
-            assert(*y==1);
-            for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
-            {
-                
-                shape[i]=x1_shape->GetStorageShape().GetDim(i);
-            }
-        }
-        else
-        {
-            ts=2;
-            assert(dim==4);
-            assert(*y==0);
-            for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
-            {
-                
-                shape[i]=x1_shape->GetStorageShape().GetDim(i);
-            }
-        }
 
     }
     

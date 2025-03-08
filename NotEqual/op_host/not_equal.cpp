@@ -2,7 +2,7 @@
 #include "register/op_def_registry.h"
 #include "tiling/platform/platform_ascendc.h"
 
-
+#include<cassert>
 namespace optiling {
     const uint32_t BLOCK_SIZE = 32;
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
@@ -10,6 +10,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
 
   NotEqualTilingData tiling;
   const gert::StorageShape* x1_shape = context->GetInputShape(0);
+  const gert::StorageShape* x2_shape = context->GetInputShape(1);
   int32_t data_sz = 1;
   for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++)
     data_sz *= x1_shape->GetStorageShape().GetDim(i);
@@ -26,13 +27,26 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     uint32_t totalLength = context->GetInputTensor(0)->GetShapeSize();
     auto dt = context->GetInputTensor(0)->GetDataType();
     int32_t ts=0;
+    int32_t shape1[3]={1,1,1};
+    int32_t shape2[3]={1,1,1};
     if(dt == ge::DT_INT8){
         sizeofdatatype = 1;
         NUM = 15;
     }else if(dt == ge::DT_FLOAT16){
+
+        int32_t dim1=x1_shape->GetStorageShape().GetDimNum();
+        int32_t dim2=x2_shape->GetStorageShape().GetDimNum();
+         for (int i = 0; i < x1_shape->GetStorageShape().GetDimNum(); i++) shape1[i]=x1_shape->GetStorageShape().GetDim(i);
+         for (int i = 0; i < x2_shape->GetStorageShape().GetDimNum(); i++) shape2[i]=x2_shape->GetStorageShape().GetDim(i);
+
         sizeofdatatype = 2;
-        NUM = 20;
-        ts=1;
+        NUM = 20; 
+
+        if(shape1[0]!=shape2[0]||shape1[1]!=shape2[1]||shape1[2]!=shape2[2])
+        {
+            ts=1;
+        }
+        
 
     }
     else if (dt == ge::DT_INT32) {
@@ -64,6 +78,7 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     tiling.set_aivNum(aivNum);
     tiling.set_core_size(core_size);
     tiling.set_core_remain(core_remain);
+    tiling.set_shape(shape2);
   tiling.set_size(data_sz);
   tiling.set_ts(ts);
   context->SetBlockDim(1);

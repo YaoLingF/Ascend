@@ -12,7 +12,7 @@ public:
     __aicore__ inline void Init(GM_ADDR boxes, GM_ADDR scores, GM_ADDR max_output_boxes_per_class, GM_ADDR iou_threshold, GM_ADDR score_threshold, GM_ADDR selected_indices, int32_t type,int32_t batch, int32_t classes, int32_t num)
     {
 
-            if(num==1024)
+            if(false)
             {
                 pipe.InitBuffer(X, BUFFER_NUM, 1024*4* sizeof(float));
                 xGm.SetGlobalBuffer((__gm__ float *)boxes, batch*num*4);
@@ -28,6 +28,7 @@ public:
 
                 float iou = iouGm.GetValue(0);
 
+             
                 
 
                 int32_t now=0;
@@ -121,6 +122,7 @@ public:
 
                 float iou = iouGm.GetValue(0);
 
+             
                 
 
                 int32_t now=0;
@@ -215,7 +217,7 @@ private:
 };
 extern "C" __global__ __aicore__ void non_max_suppression(GM_ADDR boxes, GM_ADDR scores, GM_ADDR max_output_boxes_per_class, GM_ADDR iou_threshold, GM_ADDR score_threshold, GM_ADDR selected_indices, GM_ADDR workspace, GM_ADDR tiling) {
     GET_TILING_DATA(tiling_data, tiling);
-    // TODO: user kernel impl
+   
     KernelNonMaxSuppression<float> op;
     op.Init(boxes,scores,max_output_boxes_per_class,iou_threshold,score_threshold,selected_indices,tiling_data.type,tiling_data.batch,tiling_data.classes,tiling_data.num);
 }

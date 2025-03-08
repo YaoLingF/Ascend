@@ -1,13 +1,13 @@
 
 #include "scatter_elements_tiling.h"
 #include "register/op_def_registry.h"
-#include <cassert>
 
+#include<cassert>
 namespace optiling {
 static ge::graphStatus TilingFunc(gert::TilingContext* context)
 {
 
-  ScatterElementsTilingData tiling;
+   ScatterElementsTilingData tiling;
 
     const gert::StorageShape* x1_shape = context->GetInputShape(0);
     const gert::StorageShape* x2_shape = context->GetInputShape(1);
@@ -52,7 +52,6 @@ static ge::graphStatus TilingFunc(gert::TilingContext* context)
     return ge::GRAPH_SUCCESS;
 }
 }
-
 
 namespace ge {
 static ge::graphStatus InferShape(gert::InferShapeContext* context)
